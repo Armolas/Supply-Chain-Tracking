@@ -92,3 +92,86 @@
         (ok true)
     )
 )
+
+(define-public (transfer-ownership
+    (product-id (string-ascii 36))
+    (new-owner principal)
+    (location (string-ascii 100))
+    (notes (string-ascii 200)))
+    (let (
+        (product (unwrap! (map-get? products { product-id: product-id }) err-not-found))
+        (current-owner (get current-owner product))
+    )
+        (asserts! (is-eq tx-sender current-owner) err-unauthorized)
+        ;; Update product current state
+        (map-set products
+            { product-id: product-id }
+            (merge product {
+                current-owner: new-owner,
+                timestamp: block-height,
+                location: location
+            })
+        )
+        ;; Add to history
+        (map-set product-history
+            { product-id: product-id, index: (increment-history-index product-id) }
+            {
+                owner: new-owner,
+                status: (get status product),
+                timestamp: block-height,
+                location: location,
+                notes: notes
+            }
+        )
+        (ok true)
+    )
+)
+
+(define-public (update-status
+    (product-id (string-ascii 36))
+    (new-status (string-ascii 20))
+    (location (string-ascii 100))
+    (notes (string-ascii 200)))
+    (let (
+        (product (unwrap! (map-get? products { product-id: product-id }) err-not-found))
+        (current-owner (get current-owner product))
+    )
+        (asserts! (is-eq tx-sender current-owner) err-unauthorized)
+        ;; Update product current state
+        (map-set products
+            { product-id: product-id }
+            (merge product {
+                status: new-status,
+                timestamp: block-height,
+                location: location
+            })
+        )
+        ;; Add to history
+        (map-set product-history
+            { product-id: product-id, index: (increment-history-index product-id) }
+            {
+                owner: current-owner,
+                status: new-status,
+                timestamp: block-height,
+                location: location,
+                notes: notes
+            }
+        )
+        (ok true)
+    )
+)
+
+;; Read-only Functions
+(define-read-only (get-product-details (product-id (string-ascii 36)))
+    (map-get? products { product-id: product-id })
+)
+
+(define-read-only (get-history-entry 
+    (product-id (string-ascii 36))
+    (index uint))
+    (map-get? product-history { product-id: product-id, index: index })
+)
+
+(define-read-only (get-history-length (product-id (string-ascii 36)))
+    (get-current-index product-id)
+)
